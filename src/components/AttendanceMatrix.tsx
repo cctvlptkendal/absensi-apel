@@ -46,7 +46,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
   const [activeCell, setActiveCell] = useState<{ empId: string; dateStr: string } | null>(null);
   const [noteModal, setNoteModal] = useState<{ emp: Employee; dateStr: string; note: string; status: AttendanceStatus } | null>(null);
 
-  const statusCycle: AttendanceStatus[] = ['✓', 'S', 'I', 'DL', 'C', 'TK', 'LP', 'PS', 'LB'];
+  const statusCycle: AttendanceStatus[] = ['✓', 'T', 'S', 'I', 'DL', 'C', 'TK', 'LP', 'PS', 'LB'];
 
   const getRecord = (empId: string, dateStr: string, isWeekend: boolean): AttendanceRecord => {
     return getEffectiveAttendanceRecord(attendance, empId, dateStr, isWeekend);
@@ -140,6 +140,9 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
               <th className="py-2.5 px-2 text-center w-9 font-bold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border-r border-slate-200 dark:border-slate-700" title="Total Hadir (✓)">
                 ✓
               </th>
+              <th className="py-2.5 px-2 text-center w-9 font-bold bg-orange-50 dark:bg-orange-950/30 text-orange-800 dark:text-orange-300 border-r border-slate-200 dark:border-slate-700" title="Total Terlambat (T)">
+                T
+              </th>
               <th className="py-2.5 px-2 text-center w-9 font-bold bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border-r border-slate-200 dark:border-slate-700" title="Total Sakit (S)">
                 S
               </th>
@@ -220,13 +223,14 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
                   {/* Employees in this section */}
                   {secEmployees.length === 0 ? (
                     <tr>
-                      <td colSpan={2 + dateColumns.length + 10} className="py-4 text-center text-slate-400 italic">
+                      <td colSpan={2 + dateColumns.length + 11} className="py-4 text-center text-slate-400 italic">
                         Belum ada pegawai di bagian ini. Klik "+ Tambah Orang" untuk menambahkan.
                       </td>
                     </tr>
                   ) : (
                     secEmployees.map((emp, index) => {
                       let hCount = 0;
+                      let tCount = 0;
                       let sCount = 0;
                       let iCount = 0;
                       let dlCount = 0;
@@ -283,6 +287,7 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
                             const rec = getRecord(emp.id, d.dateStr, d.isWeekend);
                             const st = rec.status;
                             if (st === '✓' || st === 'H') hCount++;
+                            else if (st === 'T') tCount++;
                             else if (st === 'S') sCount++;
                             else if (st === 'I') iCount++;
                             else if (st === 'DL') dlCount++;
@@ -330,6 +335,9 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
                           <td className="py-2 px-1 text-center font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/20 border-r border-slate-200 dark:border-slate-700">
                             {hCount}
                           </td>
+                          <td className="py-2 px-1 text-center font-bold text-orange-700 dark:text-orange-400 bg-orange-50/40 dark:bg-orange-950/20 border-r border-slate-200 dark:border-slate-700">
+                            {tCount}
+                          </td>
                           <td className="py-2 px-1 text-center font-bold text-amber-700 dark:text-amber-400 bg-amber-50/40 dark:bg-amber-950/20 border-r border-slate-200 dark:border-slate-700">
                             {sCount}
                           </td>
@@ -354,8 +362,8 @@ export const AttendanceMatrix: React.FC<AttendanceMatrixProps> = ({
 
                           {/* % Rate */}
                           {(() => {
-                            const scheduledDays = hCount + sCount + iCount + dlCount + cCount + tkCount + lpCount + psCount;
-                            const dutyPresent = hCount + psCount + dlCount;
+                            const scheduledDays = hCount + tCount + sCount + iCount + dlCount + cCount + tkCount + lpCount + psCount;
+                            const dutyPresent = hCount + tCount + psCount + dlCount;
                             const rate = scheduledDays > 0 ? Math.round((dutyPresent / scheduledDays) * 100) : 100;
                             return (
                               <td className="py-2 px-1 text-center font-bold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700">

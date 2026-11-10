@@ -13,6 +13,7 @@ import {
   getPeriodSectionAbsenceDetails,
 } from '../types/attendance';
 import { getDateColumns, triggerFileDownload } from './excelExporter';
+import { LOGO_KEMENIMIPAS_BASE64 } from './logoData';
 
 /**
  * Draws a sharp, clean vector checkmark (✓) at specified coordinates.
@@ -36,7 +37,7 @@ export function drawVectorCheckmark(
 }
 
 /**
- * Draws the official Indonesian Ministry Kop Surat according to "kop surat.md":
+ * Draws the official Indonesian Ministry Kop Surat according to "kop surat.md" and logo:
  * KEMENTERIAN IMIGRASI DAN PEMASYARAKATAN REPUBLIK INDONESIA
  * DIREKTORAT JENDERAL PEMASYARAKATAN
  * KANTOR WILAYAH JAWA TENGAH
@@ -58,42 +59,58 @@ export function drawOfficialKopSurat(
   const marginX = isLandscape ? 12 : 14;
   let y = options?.startY ?? (isLandscape ? 8.5 : 9.5);
 
-  // Baris 1: KEMENTERIAN IMIGRASI DAN PEMASYARAKATAN REPUBLIK INDONESIA
+  // Logo Kemenimipas di samping kiri Kop Surat secara proporsional
+  const logoSize = isLandscape ? 21.0 : 20.0;
+  const logoX = isLandscape ? marginX + 2.5 : marginX + 1.0;
+  const logoY = y - (isLandscape ? 1.0 : 1.5);
+
+  try {
+    if (LOGO_KEMENIMIPAS_BASE64) {
+      doc.addImage(LOGO_KEMENIMIPAS_BASE64, 'PNG', logoX, logoY, logoSize, logoSize);
+    }
+  } catch (err) {
+    console.error('Failed to render kop surat logo in PDF', err);
+  }
+
+  // Calculate centered X position for the text block between logo right edge and right margin
+  const textLeftBound = logoX + logoSize + 3;
+  const textRightBound = pageWidth - marginX;
+  const textCenterX = (textLeftBound + textRightBound) / 2;
+
+  // 4 Baris Kepala Surat Resmi Kementerian: Ukuran Sama & Seluruhnya Bold
+  const headerFontSize = isLandscape ? 10.0 : 9.0;
+  const lineGap = isLandscape ? 4.1 : 3.8;
+
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(isLandscape ? 10.5 : 9.5);
-  doc.setTextColor(30, 41, 59);
-  doc.text('KEMENTERIAN IMIGRASI DAN PEMASYARAKATAN REPUBLIK INDONESIA', pageWidth / 2, y, { align: 'center' });
+  doc.setFontSize(headerFontSize);
+  doc.setTextColor(15, 23, 42);
+
+  // Baris 1: KEMENTERIAN IMIGRASI DAN PEMASYARAKATAN REPUBLIK INDONESIA
+  doc.text('KEMENTERIAN IMIGRASI DAN PEMASYARAKATAN REPUBLIK INDONESIA', textCenterX, y, { align: 'center' });
 
   // Baris 2: DIREKTORAT JENDERAL PEMASYARAKATAN
-  y += isLandscape ? 4.2 : 4.0;
-  doc.setFontSize(isLandscape ? 9.5 : 8.5);
-  doc.text('DIREKTORAT JENDERAL PEMASYARAKATAN', pageWidth / 2, y, { align: 'center' });
+  y += lineGap;
+  doc.text('DIREKTORAT JENDERAL PEMASYARAKATAN', textCenterX, y, { align: 'center' });
 
   // Baris 3: KANTOR WILAYAH JAWA TENGAH
-  y += isLandscape ? 4.0 : 3.8;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(isLandscape ? 9 : 8.5);
-  doc.setTextColor(51, 65, 85);
-  doc.text('KANTOR WILAYAH JAWA TENGAH', pageWidth / 2, y, { align: 'center' });
+  y += lineGap;
+  doc.text('KANTOR WILAYAH JAWA TENGAH', textCenterX, y, { align: 'center' });
 
   // Baris 4: LEMBAGA PEMASYARAKATAN TERBUKA KELAS IIB KENDAL
-  y += isLandscape ? 4.6 : 4.3;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(isLandscape ? 11.5 : 10.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text(institution.toUpperCase(), pageWidth / 2, y, { align: 'center' });
+  y += lineGap;
+  doc.text(institution.toUpperCase(), textCenterX, y, { align: 'center' });
 
   // Baris 5: Jalan Raya Bleder – Kendal Kilometer 10 Kode Pos 51351
   y += isLandscape ? 3.8 : 3.6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(isLandscape ? 7.5 : 7.2);
   doc.setTextColor(71, 85, 105);
-  doc.text('Jalan Raya Bleder – Kendal Kilometer 10 Kode Pos 51351', pageWidth / 2, y, { align: 'center' });
+  doc.text('Jalan Raya Bleder – Kendal Kilometer 10 Kode Pos 51351', textCenterX, y, { align: 'center' });
 
   // Baris 6: laman : www.kemenimipas.go.id Pos-el : lpt.kendal@gmail.com
   y += isLandscape ? 3.5 : 3.3;
   doc.setFontSize(isLandscape ? 7.2 : 7.0);
-  doc.text('laman : www.kemenimipas.go.id   Pos-el : lpt.kendal@gmail.com', pageWidth / 2, y, { align: 'center' });
+  doc.text('laman : www.kemenimipas.go.id   Pos-el : lpt.kendal@gmail.com', textCenterX, y, { align: 'center' });
 
   // Garis ganda pembatas resmi kop surat (Double line rule)
   y += isLandscape ? 2.6 : 2.4;
@@ -172,6 +189,7 @@ export function generateAttendancePDFBlob({
   });
   tableHeaders.push(
     { content: '', isCheckmarkHeader: true, styles: { halign: 'center' } },
+    'T',
     'S',
     'I',
     'DL',
@@ -183,11 +201,11 @@ export function generateAttendancePDFBlob({
     'Keterangan'
   );
 
-
   const tableBody: any[][] = [];
   const sortedSections = [...sections].sort((a, b) => a.order - b.order);
 
   let grandTotalH = 0;
+  let grandTotalT = 0;
   let grandTotalS = 0;
   let grandTotalI = 0;
   let grandTotalDL = 0;
@@ -220,6 +238,7 @@ export function generateAttendancePDFBlob({
     ]);
 
     let secTotalH = 0;
+    let secTotalT = 0;
     let secTotalS = 0;
     let secTotalI = 0;
     let secTotalDL = 0;
@@ -231,6 +250,7 @@ export function generateAttendancePDFBlob({
 
     secEmployees.forEach((emp, empIdx) => {
       let hCount = 0;
+      let tCount = 0;
       let sCount = 0;
       let iCount = 0;
       let dlCount = 0;
@@ -250,6 +270,7 @@ export function generateAttendancePDFBlob({
         const displayStatus = record.status;
 
         if (displayStatus === '✓') hCount++;
+        else if (displayStatus === 'T') tCount++;
         else if (displayStatus === 'S') sCount++;
         else if (displayStatus === 'I') iCount++;
         else if (displayStatus === 'DL') dlCount++;
@@ -262,7 +283,6 @@ export function generateAttendancePDFBlob({
           notes.push(`${d.dayNum}: ${record.note}`);
         }
 
-
         // Custom styling cell for status code
         let cellBg: [number, number, number] = [255, 255, 255];
         let cellColor: [number, number, number] = [51, 65, 85];
@@ -270,6 +290,9 @@ export function generateAttendancePDFBlob({
         if (displayStatus === '✓') {
           cellBg = [220, 252, 231]; // emerald-100
           cellColor = [22, 101, 52];
+        } else if (displayStatus === 'T') {
+          cellBg = [255, 237, 213]; // orange-100
+          cellColor = [154, 52, 18]; // orange-800
         } else if (displayStatus === 'S') {
           cellBg = [254, 243, 199]; // amber-100
           cellColor = [146, 64, 14];
@@ -320,13 +343,13 @@ export function generateAttendancePDFBlob({
         }
       });
 
-
-      const scheduledDays = hCount + sCount + iCount + dlCount + cCount + tkCount + lpCount + psCount;
-      const dutyPresent = hCount + psCount + dlCount;
-      const rate = scheduledDays > 0 ? Math.round((dutyPresent / scheduledDays) * 100) : 100;
+      const scheduledDays = hCount + tCount + sCount + iCount + dlCount + cCount + tkCount + lpCount + psCount;
+      const dutyPresent = hCount + tCount + psCount + dlCount;
+      const rate = scheduledDays > 0 ? Math.round((dutyPresent / scheduledDays) * 100) : null;
 
       row.push(
         { content: String(hCount), styles: { halign: 'center', fontStyle: 'bold', textColor: [22, 101, 52] } },
+        { content: String(tCount), styles: { halign: 'center', textColor: [154, 52, 18] } },
         { content: String(sCount), styles: { halign: 'center', textColor: [146, 64, 14] } },
         { content: String(iCount), styles: { halign: 'center', textColor: [7, 89, 133] } },
         { content: String(dlCount), styles: { halign: 'center', textColor: [107, 33, 168] } },
@@ -334,13 +357,14 @@ export function generateAttendancePDFBlob({
         { content: String(tkCount), styles: { halign: 'center', textColor: [159, 18, 57] } },
         { content: String(lpCount), styles: { halign: 'center', textColor: [15, 118, 110] } },
         { content: String(psCount), styles: { halign: 'center', textColor: [29, 78, 216] } },
-        { content: `${rate}%`, styles: { halign: 'center', fontStyle: 'bold' } },
+        { content: rate !== null ? `${rate}%` : '-', styles: { halign: 'center', fontStyle: 'bold' } },
         { content: notes.join('; ') || '-', styles: { fontSize: 5.5, textColor: [100, 116, 139] } }
       );
 
       tableBody.push(row);
 
       secTotalH += hCount;
+      secTotalT += tCount;
       secTotalS += sCount;
       secTotalI += iCount;
       secTotalDL += dlCount;
@@ -351,8 +375,8 @@ export function generateAttendancePDFBlob({
       secPossibleDays += scheduledDays;
     });
 
-    const secDutyPresent = secTotalH + secTotalPS + secTotalDL;
-    const secRate = secPossibleDays > 0 ? Math.round((secDutyPresent / secPossibleDays) * 100) : 100;
+    const secDutyPresent = secTotalH + secTotalT + secTotalPS + secTotalDL;
+    const secRate = secPossibleDays > 0 ? Math.round((secDutyPresent / secPossibleDays) * 100) : null;
     tableBody.push([
       {
         content: `Subtotal ${section.name}`,
@@ -365,6 +389,7 @@ export function generateAttendancePDFBlob({
         },
       },
       { content: String(secTotalH), styles: { halign: 'center', fontStyle: 'bold', fillColor: [248, 250, 252] } },
+      { content: String(secTotalT), styles: { halign: 'center', fontStyle: 'bold', fillColor: [248, 250, 252] } },
       { content: String(secTotalS), styles: { halign: 'center', fontStyle: 'bold', fillColor: [248, 250, 252] } },
       { content: String(secTotalI), styles: { halign: 'center', fontStyle: 'bold', fillColor: [248, 250, 252] } },
       { content: String(secTotalDL), styles: { halign: 'center', fontStyle: 'bold', fillColor: [248, 250, 252] } },
@@ -372,11 +397,12 @@ export function generateAttendancePDFBlob({
       { content: String(secTotalTK), styles: { halign: 'center', fontStyle: 'bold', fillColor: [248, 250, 252] } },
       { content: String(secTotalLP), styles: { halign: 'center', fontStyle: 'bold', fillColor: [248, 250, 252] } },
       { content: String(secTotalPS), styles: { halign: 'center', fontStyle: 'bold', fillColor: [248, 250, 252] } },
-      { content: `${secRate}%`, styles: { halign: 'center', fontStyle: 'bold', fillColor: [248, 250, 252] } },
+      { content: secRate !== null ? `${secRate}%` : '-', styles: { halign: 'center', fontStyle: 'bold', fillColor: [248, 250, 252] } },
       { content: `${secEmployees.length} Pegawai`, styles: { fillColor: [248, 250, 252], fontSize: 6 } },
     ]);
 
     grandTotalH += secTotalH;
+    grandTotalT += secTotalT;
     grandTotalS += secTotalS;
     grandTotalI += secTotalI;
     grandTotalDL += secTotalDL;
@@ -388,8 +414,8 @@ export function generateAttendancePDFBlob({
   });
 
   // Grand Total Row
-  const grandDutyPresent = grandTotalH + grandTotalPS + grandTotalDL;
-  const grandRate = grandTotalWorkingDays > 0 ? Math.round((grandDutyPresent / grandTotalWorkingDays) * 100) : 100;
+  const grandDutyPresent = grandTotalH + grandTotalT + grandTotalPS + grandTotalDL;
+  const grandRate = grandTotalWorkingDays > 0 ? Math.round((grandDutyPresent / grandTotalWorkingDays) * 100) : null;
   tableBody.push([
     {
       content: 'TOTAL KESELURUHAN PEGAWAI',
@@ -403,6 +429,7 @@ export function generateAttendancePDFBlob({
       },
     },
     { content: String(grandTotalH), styles: { halign: 'center', fontStyle: 'bold', fillColor: [226, 232, 240] } },
+    { content: String(grandTotalT), styles: { halign: 'center', fontStyle: 'bold', fillColor: [226, 232, 240] } },
     { content: String(grandTotalS), styles: { halign: 'center', fontStyle: 'bold', fillColor: [226, 232, 240] } },
     { content: String(grandTotalI), styles: { halign: 'center', fontStyle: 'bold', fillColor: [226, 232, 240] } },
     { content: String(grandTotalDL), styles: { halign: 'center', fontStyle: 'bold', fillColor: [226, 232, 240] } },
@@ -410,13 +437,13 @@ export function generateAttendancePDFBlob({
     { content: String(grandTotalTK), styles: { halign: 'center', fontStyle: 'bold', fillColor: [226, 232, 240] } },
     { content: String(grandTotalLP), styles: { halign: 'center', fontStyle: 'bold', fillColor: [226, 232, 240] } },
     { content: String(grandTotalPS), styles: { halign: 'center', fontStyle: 'bold', fillColor: [226, 232, 240] } },
-    { content: `${grandRate}%`, styles: { halign: 'center', fontStyle: 'bold', fillColor: [226, 232, 240] } },
+    { content: grandRate !== null ? `${grandRate}%` : '-', styles: { halign: 'center', fontStyle: 'bold', fillColor: [226, 232, 240] } },
     { content: `Total: ${employees.length} Pegawai`, styles: { fillColor: [226, 232, 240], fontStyle: 'bold', fontSize: 6 } },
   ]);
 
   const columnStyles: Record<number, any> = {
     0: { cellWidth: 6, halign: 'center' },
-    1: { cellWidth: 48 },
+    1: { cellWidth: 46 },
   };
 
   let colIdx = 2;
@@ -425,9 +452,9 @@ export function generateAttendancePDFBlob({
     colIdx++;
   });
 
-  // ✓, S, I, DL, C, TK, LP, PS
-  for (let i = 0; i < 8; i++) {
-    columnStyles[colIdx] = { cellWidth: 5.5, halign: 'center' };
+  // ✓, T, S, I, DL, C, TK, LP, PS (9 columns)
+  for (let i = 0; i < 9; i++) {
+    columnStyles[colIdx] = { cellWidth: 5.2, halign: 'center' };
     colIdx++;
   }
   // %
@@ -512,6 +539,7 @@ export function generateAttendancePDFBlob({
     'Nama Seksi / Unit',
     'Jumlah',
     { content: 'Hadir (   )', isHadirSummaryHeader: true, styles: { halign: 'center' } },
+    'Terlambat (T)',
     'Sakit (S)',
     'Izin (I)',
     'Dinas Luar (DL)',
@@ -527,13 +555,14 @@ export function generateAttendancePDFBlob({
 
   sortedSections.forEach((sec, idx) => {
     const secEmployees = employees.filter((e) => e.sectionId === sec.id);
-    let sH = 0, sS = 0, sI = 0, sDL = 0, sC = 0, sTK = 0, sLP = 0, sPS = 0;
+    let sH = 0, sT = 0, sS = 0, sI = 0, sDL = 0, sC = 0, sTK = 0, sLP = 0, sPS = 0;
 
     secEmployees.forEach((emp) => {
       dateColumns.forEach((d) => {
         const key = `${emp.id}_${d.dateStr}`;
         const st = attendance[key]?.status || (d.isWeekend ? 'LB' : '✓');
         if (st === '✓' || st === 'H') sH++;
+        else if (st === 'T') sT++;
         else if (st === 'S') sS++;
         else if (st === 'I') sI++;
         else if (st === 'DL') sDL++;
@@ -544,8 +573,8 @@ export function generateAttendancePDFBlob({
       });
     });
 
-    const activeDays = sH + sS + sI + sDL + sC + sTK + sLP + sPS;
-    const dutyPresent = sH + sPS + sDL;
+    const activeDays = sH + sT + sS + sI + sDL + sC + sTK + sLP + sPS;
+    const dutyPresent = sH + sT + sPS + sDL;
     const rate = activeDays > 0 ? Math.round((dutyPresent / activeDays) * 100) : 100;
 
     const absenceInfo = getPeriodSectionAbsenceDetails(sec.id, employees, attendance, dateColumns);
@@ -558,6 +587,7 @@ export function generateAttendancePDFBlob({
       sec.name,
       secEmployees.length,
       sH,
+      sT,
       sS,
       sI,
       sDL,
@@ -571,12 +601,13 @@ export function generateAttendancePDFBlob({
   });
 
   // Total summary row
-  const totalAbsentSlots = grandTotalS + grandTotalI + grandTotalDL + grandTotalC + grandTotalTK;
+  const totalAbsentSlots = grandTotalT + grandTotalS + grandTotalI + grandTotalDL + grandTotalC + grandTotalTK;
   summaryRows.push([
     { content: '', styles: { fillColor: [226, 232, 240] } },
     { content: 'TOTAL PERSONEL', styles: { fontStyle: 'bold', fillColor: [226, 232, 240] } },
     { content: String(employees.length), styles: { fontStyle: 'bold', halign: 'center', fillColor: [226, 232, 240] } },
     { content: String(grandTotalH), styles: { fontStyle: 'bold', halign: 'center', fillColor: [226, 232, 240] } },
+    { content: String(grandTotalT), styles: { fontStyle: 'bold', halign: 'center', fillColor: [226, 232, 240] } },
     { content: String(grandTotalS), styles: { fontStyle: 'bold', halign: 'center', fillColor: [226, 232, 240] } },
     { content: String(grandTotalI), styles: { fontStyle: 'bold', halign: 'center', fillColor: [226, 232, 240] } },
     { content: String(grandTotalDL), styles: { fontStyle: 'bold', halign: 'center', fillColor: [226, 232, 240] } },
@@ -608,19 +639,20 @@ export function generateAttendancePDFBlob({
       halign: 'center',
     },
     columnStyles: {
-      0: { cellWidth: 7, halign: 'center' },
-      1: { cellWidth: 42, fontStyle: 'bold' },
-      2: { cellWidth: 14, halign: 'center' },
-      3: { cellWidth: 12, halign: 'center' },
-      4: { cellWidth: 11, halign: 'center' },
-      5: { cellWidth: 11, halign: 'center' },
-      6: { cellWidth: 12, halign: 'center' },
+      0: { cellWidth: 6, halign: 'center' },
+      1: { cellWidth: 38, fontStyle: 'bold' },
+      2: { cellWidth: 12, halign: 'center' },
+      3: { cellWidth: 11, halign: 'center' },
+      4: { cellWidth: 12, halign: 'center' },
+      5: { cellWidth: 10, halign: 'center' },
+      6: { cellWidth: 10, halign: 'center' },
       7: { cellWidth: 11, halign: 'center' },
-      8: { cellWidth: 12, halign: 'center' },
-      9: { cellWidth: 13, halign: 'center' },
-      10: { cellWidth: 13, halign: 'center' },
-      11: { cellWidth: 15, halign: 'center' },
-      12: { cellWidth: 'auto', fontSize: 6.5 },
+      8: { cellWidth: 10, halign: 'center' },
+      9: { cellWidth: 12, halign: 'center' },
+      10: { cellWidth: 12, halign: 'center' },
+      11: { cellWidth: 12, halign: 'center' },
+      12: { cellWidth: 14, halign: 'center' },
+      13: { cellWidth: 'auto', fontSize: 6.5 },
     },
     margin: { left: 12, right: 12 },
     didDrawCell: (data) => {
@@ -639,6 +671,7 @@ export function generateAttendancePDFBlob({
     let cellBg: [number, number, number] = [241, 245, 249];
     let cellTextColor: [number, number, number] = [30, 41, 59];
     if (st === '✓' || st === '✔') { cellBg = [220, 252, 231]; cellTextColor = [22, 101, 52]; }
+    else if (st === 'T') { cellBg = [255, 237, 213]; cellTextColor = [154, 52, 18]; }
     else if (st === 'S') { cellBg = [254, 243, 199]; cellTextColor = [146, 64, 14]; }
     else if (st === 'I') { cellBg = [224, 242, 254]; cellTextColor = [7, 89, 133]; }
     else if (st === 'DL') { cellBg = [243, 232, 255]; cellTextColor = [107, 33, 168]; }
@@ -676,7 +709,7 @@ export function generateAttendancePDFBlob({
 
   autoTable(doc, {
     startY: legendY,
-    head: [[{ content: 'KETERANGAN STATUS KEHADIRAN (LEGENDA):', colSpan: 9, styles: { fillColor: [51, 65, 85], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.5, halign: 'left' } }]],
+    head: [[{ content: 'KETERANGAN STATUS KEHADIRAN (LEGENDA):', colSpan: 10, styles: { fillColor: [51, 65, 85], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.5, halign: 'left' } }]],
     body: [legendCells],
     theme: 'grid',
     styles: {
@@ -799,7 +832,7 @@ export function generateDailyAttendancePDFBlob({
   const formattedFullDate = `${dayName}, ${d} ${monthName} ${y}`;
 
   // Calculate day counts
-  let dayH = 0, dayS = 0, dayI = 0, dayDL = 0, dayC = 0, dayTK = 0, dayLP = 0, dayPS = 0, dayLB = 0;
+  let dayH = 0, dayT = 0, dayS = 0, dayI = 0, dayDL = 0, dayC = 0, dayTK = 0, dayLP = 0, dayPS = 0, dayLB = 0;
   const sortedSections = [...sections].sort((a, b) => a.order - b.order);
 
   // Employee details with exceptions/notes
@@ -819,6 +852,7 @@ export function generateDailyAttendancePDFBlob({
     const status = rec.status;
 
     if (status === '✓') dayH++;
+    else if (status === 'T') dayT++;
     else if (status === 'S') dayS++;
     else if (status === 'I') dayI++;
     else if (status === 'DL') dayDL++;
@@ -828,8 +862,8 @@ export function generateDailyAttendancePDFBlob({
     else if (status === 'PS') dayPS++;
     else if (status === 'LB') dayLB++;
 
-    // Track if not standard Hadir or has specific note
-    if ((status !== '✓' && status !== 'LB') || rec.note) {
+    // Track if not standard Hadir or has specific note (ignore empty/unrecorded status '')
+    if ((status && status !== '✓' && status !== 'LB' && status !== '') || (status !== '' && rec.note)) {
       const secName = sections.find((s) => s.id === emp.sectionId)?.name || '-';
       const statusLabel = STATUS_CONFIG[status]?.label || status;
       exceptionEmployees.push({
@@ -845,10 +879,9 @@ export function generateDailyAttendancePDFBlob({
     }
   });
 
-
-  const scheduled = dayH + dayS + dayI + dayDL + dayC + dayTK + dayLP + dayPS;
-  const dutyPresent = dayH + dayPS + dayDL;
-  const dailyRate = scheduled > 0 ? Math.round((dutyPresent / scheduled) * 100) : 100;
+  const scheduled = dayH + dayT + dayS + dayI + dayDL + dayC + dayTK + dayLP + dayPS;
+  const dutyPresent = dayH + dayT + dayPS + dayDL;
+  const dailyRate = scheduled > 0 ? Math.round((dutyPresent / scheduled) * 100) : null;
 
   // --- KOP SURAT RESMI (KEMENTERIAN IMIGRASI DAN PEMASYARAKATAN) ---
   const kopEndY = drawOfficialKopSurat(doc, pageWidth, {
@@ -874,6 +907,7 @@ export function generateDailyAttendancePDFBlob({
     head: [[
       'Total Pegawai',
       { content: 'Hadir (   )', isHadirSummaryHeader: true, styles: { halign: 'center' } } as any,
+      'Terlambat (T)',
       'Lepas Piket (LP)',
       'Piket Siang (PS)',
       'Dinas Luar (DL)',
@@ -883,10 +917,10 @@ export function generateDailyAttendancePDFBlob({
       'Tanpa Keterangan (TK)',
       '% Kehadiran'
     ]],
-
     body: [[
       { content: `${employees.length} Orang`, styles: { fontStyle: 'bold', halign: 'center' } },
       { content: String(dayH), styles: { fontStyle: 'bold', halign: 'center', textColor: [22, 101, 52] } },
+      { content: String(dayT), styles: { fontStyle: 'bold', halign: 'center', textColor: [154, 52, 18] } },
       { content: String(dayLP), styles: { fontStyle: 'bold', halign: 'center', textColor: [15, 118, 110] } },
       { content: String(dayPS), styles: { fontStyle: 'bold', halign: 'center', textColor: [29, 78, 216] } },
       { content: String(dayDL), styles: { fontStyle: 'bold', halign: 'center', textColor: [107, 33, 168] } },
@@ -928,6 +962,7 @@ export function generateDailyAttendancePDFBlob({
     let cellBg: [number, number, number] = [241, 245, 249];
     let cellTextColor: [number, number, number] = [30, 41, 59];
     if (st === '✓' || st === '✔') { cellBg = [220, 252, 231]; cellTextColor = [22, 101, 52]; }
+    else if (st === 'T') { cellBg = [255, 237, 213]; cellTextColor = [154, 52, 18]; }
     else if (st === 'S') { cellBg = [254, 243, 199]; cellTextColor = [146, 64, 14]; }
     else if (st === 'I') { cellBg = [224, 242, 254]; cellTextColor = [7, 89, 133]; }
     else if (st === 'DL') { cellBg = [243, 232, 255]; cellTextColor = [107, 33, 168]; }
@@ -995,6 +1030,7 @@ export function generateDailyAttendancePDFBlob({
     'Nama Seksi / Unit',
     'Jumlah',
     { content: 'Hadir (   )', isHadirSummaryHeader: true, styles: { halign: 'center' } },
+    'T',
     'LP',
     'PS',
     'DL',
@@ -1010,12 +1046,13 @@ export function generateDailyAttendancePDFBlob({
 
   sortedSections.forEach((sec, idx) => {
     const secEmployees = employees.filter((e) => e.sectionId === sec.id);
-    let sH = 0, sS = 0, sI = 0, sDL = 0, sC = 0, sTK = 0, sLP = 0, sPS = 0;
+    let sH = 0, sT = 0, sS = 0, sI = 0, sDL = 0, sC = 0, sTK = 0, sLP = 0, sPS = 0;
 
     secEmployees.forEach((emp) => {
       const rec = getEffectiveAttendanceRecord(attendance, emp.id, dateStr, isWeekend);
       const st = rec.status;
       if (st === '✓') sH++;
+      else if (st === 'T') sT++;
       else if (st === 'S') sS++;
       else if (st === 'I') sI++;
       else if (st === 'DL') sDL++;
@@ -1025,8 +1062,8 @@ export function generateDailyAttendancePDFBlob({
       else if (st === 'PS') sPS++;
     });
 
-    const secScheduled = sH + sS + sI + sDL + sC + sTK + sLP + sPS;
-    const secDuty = sH + sPS + sDL;
+    const secScheduled = sH + sT + sS + sI + sDL + sC + sTK + sLP + sPS;
+    const secDuty = sH + sT + sPS + sDL;
     const secRate = secScheduled > 0 ? Math.round((secDuty / secScheduled) * 100) : 100;
 
     const dailyAbsence = getDailySectionAbsenceDetails(sec.id, employees, attendance, dateStr, isWeekend);
@@ -1039,6 +1076,7 @@ export function generateDailyAttendancePDFBlob({
       { content: sec.name, styles: { fontStyle: 'bold' } },
       { content: String(secEmployees.length), styles: { halign: 'center' } },
       { content: String(sH), styles: { halign: 'center', fontStyle: 'bold', textColor: [22, 101, 52] } },
+      { content: String(sT), styles: { halign: 'center', textColor: [154, 52, 18] } },
       { content: String(sLP), styles: { halign: 'center', textColor: [15, 118, 110] } },
       { content: String(sPS), styles: { halign: 'center', textColor: [29, 78, 216] } },
       { content: String(sDL), styles: { halign: 'center', textColor: [107, 33, 168] } },
@@ -1057,6 +1095,7 @@ export function generateDailyAttendancePDFBlob({
     { content: 'TOTAL KESELURUHAN', styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
     { content: String(employees.length), styles: { halign: 'center', fontStyle: 'bold', fillColor: [241, 245, 249] } },
     { content: String(dayH), styles: { halign: 'center', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [22, 101, 52] } },
+    { content: String(dayT), styles: { halign: 'center', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [154, 52, 18] } },
     { content: String(dayLP), styles: { halign: 'center', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 118, 110] } },
     { content: String(dayPS), styles: { halign: 'center', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [29, 78, 216] } },
     { content: String(dayDL), styles: { halign: 'center', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [107, 33, 168] } },
@@ -1089,18 +1128,19 @@ export function generateDailyAttendancePDFBlob({
     },
     columnStyles: {
       0: { cellWidth: 7, halign: 'center' },
-      1: { cellWidth: 38 },
-      2: { cellWidth: 11, halign: 'center' },
-      3: { cellWidth: 12, halign: 'center' },
-      4: { cellWidth: 8, halign: 'center' },
-      5: { cellWidth: 8, halign: 'center' },
-      6: { cellWidth: 8, halign: 'center' },
-      7: { cellWidth: 8, halign: 'center' },
-      8: { cellWidth: 8, halign: 'center' },
-      9: { cellWidth: 8, halign: 'center' },
-      10: { cellWidth: 8, halign: 'center' },
-      11: { cellWidth: 13, halign: 'center' },
-      12: { cellWidth: 'auto', halign: 'left', fontSize: 6 },
+      1: { cellWidth: 36 },
+      2: { cellWidth: 10, halign: 'center' },
+      3: { cellWidth: 11, halign: 'center' },
+      4: { cellWidth: 7.5, halign: 'center' },
+      5: { cellWidth: 7.5, halign: 'center' },
+      6: { cellWidth: 7.5, halign: 'center' },
+      7: { cellWidth: 7.5, halign: 'center' },
+      8: { cellWidth: 7.5, halign: 'center' },
+      9: { cellWidth: 7.5, halign: 'center' },
+      10: { cellWidth: 7.5, halign: 'center' },
+      11: { cellWidth: 7.5, halign: 'center' },
+      12: { cellWidth: 12, halign: 'center' },
+      13: { cellWidth: 'auto', halign: 'left', fontSize: 6 },
     },
     margin: { left: 14, right: 14 },
     didDrawCell: (data) => {
@@ -1147,7 +1187,8 @@ export function generateDailyAttendancePDFBlob({
       secExc.forEach((e, itemIdx) => {
         let cellBg: [number, number, number] = [255, 255, 255];
         let cellText: [number, number, number] = [30, 41, 59];
-        if (e.status === 'S') { cellBg = [254, 243, 199]; cellText = [146, 64, 14]; }
+        if (e.status === 'T') { cellBg = [255, 237, 213]; cellText = [154, 52, 18]; }
+        else if (e.status === 'S') { cellBg = [254, 243, 199]; cellText = [146, 64, 14]; }
         else if (e.status === 'I') { cellBg = [224, 242, 254]; cellText = [7, 89, 133]; }
         else if (e.status === 'DL') { cellBg = [243, 232, 255]; cellText = [107, 33, 168]; }
         else if (e.status === 'C') { cellBg = [238, 242, 255]; cellText = [55, 48, 163]; }

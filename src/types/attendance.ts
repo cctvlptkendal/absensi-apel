@@ -1,6 +1,7 @@
 export type AttendanceStatus =
   | '✓'
   | '✔'
+  | 'T'
   | 'S'
   | 'I'
   | 'DL'
@@ -10,7 +11,8 @@ export type AttendanceStatus =
   | 'PS'
   | 'LB'
   | 'H'
-  | '-';
+  | '-'
+  | '';
 
 
 export interface Employee {
@@ -63,7 +65,7 @@ export interface ExportSettings {
   signatures: SignatureSettings;
 }
 
-export const ACTIVE_STATUS_CODES: AttendanceStatus[] = ['✓', 'S', 'I', 'DL', 'C', 'TK', 'LP', 'PS', 'LB'];
+export const ACTIVE_STATUS_CODES: AttendanceStatus[] = ['✓', 'T', 'S', 'I', 'DL', 'C', 'TK', 'LP', 'PS', 'LB'];
 
 export const STATUS_CONFIG: Record<string, {
   label: string;
@@ -77,7 +79,7 @@ export const STATUS_CONFIG: Record<string, {
   '✓': {
     label: 'Hadir',
     shortLabel: '✓',
-    description: 'Hadir Apel / Dinas',
+    description: 'Hadir Apel / Dinas Tepat Waktu',
     bgClass: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300',
     textClass: 'text-emerald-700 dark:text-emerald-400',
     borderClass: 'border-emerald-300 dark:border-emerald-800',
@@ -86,11 +88,20 @@ export const STATUS_CONFIG: Record<string, {
   '✔': {
     label: 'Hadir',
     shortLabel: '✓',
-    description: 'Hadir Apel / Dinas',
+    description: 'Hadir Apel / Dinas Tepat Waktu',
     bgClass: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300',
     textClass: 'text-emerald-700 dark:text-emerald-400',
     borderClass: 'border-emerald-300 dark:border-emerald-800',
     excelColor: 'C6EFCE', // soft green
+  },
+  'T': {
+    label: 'Terlambat',
+    shortLabel: 'T',
+    description: 'Terlambat Mengikuti Apel',
+    bgClass: 'bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-950/60 dark:text-orange-300',
+    textClass: 'text-orange-700 dark:text-orange-400',
+    borderClass: 'border-orange-300 dark:border-orange-800',
+    excelColor: 'FCE4D6', // soft orange
   },
   'S': {
     label: 'Sakit',
@@ -184,16 +195,27 @@ export const STATUS_CONFIG: Record<string, {
     borderClass: 'border-slate-300 dark:border-slate-700',
     excelColor: 'F2F2F2',
   },
+
+  '': {
+    label: 'Belum Diisi',
+    shortLabel: '-',
+    description: 'Belum Diisi / Tidak Ada Input Apel',
+    bgClass: 'bg-transparent text-slate-400 dark:text-slate-500',
+    textClass: 'text-slate-400 dark:text-slate-500',
+    borderClass: 'border-slate-200 dark:border-slate-700 border-dashed',
+    excelColor: 'FFFFFF',
+  },
 };
 
 /**
- * Normalizes any legacy or missing attendance status code into one of the 9 active official codes
+ * Normalizes any legacy or missing attendance status code.
+ * If not inputted yet or empty, returns '' (blank) so it does not affect rekapan.
  */
 export function normalizeAttendanceStatus(
   status: AttendanceStatus | string | undefined,
-  isWeekend: boolean = false
+  _isWeekend: boolean = false
 ): AttendanceStatus {
-  if (!status) return isWeekend ? 'LB' : '✓';
+  if (!status || status === '') return '';
   if ((status as string) === 'H' || (status as string) === '✔') return '✓';
   if ((status as string) === '-') return 'LB';
   return status as AttendanceStatus;
@@ -258,10 +280,14 @@ export function getDailySectionAbsenceDetails(
   const secEmployees = employees.filter((e) => e.sectionId === sectionId);
   const items: DailyAbsenceItem[] = [];
 
+  let recordedCount = 0;
+
   secEmployees.forEach((emp) => {
     const rec = getEffectiveAttendanceRecord(attendance, emp.id, dateStr, isWeekend);
     const st = rec.status;
-    if (st !== '✓' && st !== '✔' && st !== 'H' && st !== 'LB') {
+    if (st !== '') recordedCount++;
+
+    if (st && st !== '✓' && st !== '✔' && st !== 'H' && st !== 'LB' && st !== '') {
       const label = STATUS_CONFIG[st]?.label || st;
       const formatted = `${emp.name} (${st}${rec.note ? `: ${rec.note}` : ''})`;
       items.push({
@@ -274,7 +300,12 @@ export function getDailySectionAbsenceDetails(
     }
   });
 
-  const summaryText = items.length === 0 ? 'Nihil (Hadir Semua)' : items.map((i) => i.formatted).join(', ');
+  const summaryText =
+    items.length > 0
+      ? items.map((i) => i.formatted).join(', ')
+      : recordedCount === 0
+      ? 'Belum Diisi'
+      : 'Nihil (Hadir Semua)';
   return { items, summaryText };
 }
 
@@ -303,7 +334,7 @@ export function getPeriodSectionAbsenceDetails(
     dateColumns.forEach((d) => {
       const rec = getEffectiveAttendanceRecord(attendance, emp.id, d.dateStr, d.isWeekend);
       const st = rec.status;
-      if (st !== '✓' && st !== '✔' && st !== 'H' && st !== 'LB') {
+      if (st && st !== '✓' && st !== '✔' && st !== 'H' && st !== 'LB' && st !== '') {
         absentDays.push({
           dayNum: d.dayNum,
           status: st,

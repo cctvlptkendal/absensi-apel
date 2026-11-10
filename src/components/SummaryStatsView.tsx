@@ -44,6 +44,7 @@ export const SummaryStatsView: React.FC<SummaryStatsViewProps> = ({
   ];
 
   let totalH = 0;
+  let totalT = 0;
   let totalS = 0;
   let totalI = 0;
   let totalDL = 0;
@@ -54,13 +55,14 @@ export const SummaryStatsView: React.FC<SummaryStatsViewProps> = ({
 
   const sectionSummaries = sections.map((sec, idx) => {
     const secEmployees = employees.filter(e => e.sectionId === sec.id);
-    let sH = 0, sS = 0, sI = 0, sDL = 0, sC = 0, sTK = 0, sLP = 0, sPS = 0;
+    let sH = 0, sT = 0, sS = 0, sI = 0, sDL = 0, sC = 0, sTK = 0, sLP = 0, sPS = 0;
 
     secEmployees.forEach(emp => {
       dateColumns.forEach(d => {
         const rec = getEffectiveAttendanceRecord(attendance, emp.id, d.dateStr, d.isWeekend);
         const st = rec.status;
         if (st === '✓') sH++;
+        else if (st === 'T') sT++;
         else if (st === 'S') sS++;
         else if (st === 'I') sI++;
         else if (st === 'DL') sDL++;
@@ -71,11 +73,12 @@ export const SummaryStatsView: React.FC<SummaryStatsViewProps> = ({
       });
     });
 
-    const activeDays = sH + sS + sI + sDL + sC + sTK + sLP + sPS;
-    const dutyPresent = sH + sPS + sDL;
+    const activeDays = sH + sT + sS + sI + sDL + sC + sTK + sLP + sPS;
+    const dutyPresent = sH + sT + sPS + sDL;
     const rate = activeDays > 0 ? Math.round((dutyPresent / activeDays) * 100) : 100;
 
     totalH += sH;
+    totalT += sT;
     totalS += sS;
     totalI += sI;
     totalDL += sDL;
@@ -97,6 +100,7 @@ export const SummaryStatsView: React.FC<SummaryStatsViewProps> = ({
       name: sec.name,
       employeeCount: secEmployees.length,
       hadir: sH,
+      terlambat: sT,
       sakit: sS,
       izin: sI,
       dinasLuar: sDL,
@@ -109,8 +113,8 @@ export const SummaryStatsView: React.FC<SummaryStatsViewProps> = ({
     };
   });
 
-  const totalActiveSlots = totalH + totalS + totalI + totalDL + totalC + totalTK + totalLP + totalPS;
-  const totalDutyPresent = totalH + totalPS + totalDL;
+  const totalActiveSlots = totalH + totalT + totalS + totalI + totalDL + totalC + totalTK + totalLP + totalPS;
+  const totalDutyPresent = totalH + totalT + totalPS + totalDL;
   const overallRate = totalActiveSlots > 0 ? Math.round((totalDutyPresent / totalActiveSlots) * 100) : 100;
 
   return (
@@ -261,6 +265,7 @@ export const SummaryStatsView: React.FC<SummaryStatsViewProps> = ({
                 <th className="py-3 px-4 font-bold min-w-48">Nama Seksi / Unit</th>
                 <th className="py-3 px-3 text-center font-bold">Jumlah Personel</th>
                 <th className="py-3 px-3 text-center font-bold text-emerald-700 dark:text-emerald-400">Hadir (✓)</th>
+                <th className="py-3 px-3 text-center font-bold text-orange-700 dark:text-orange-400">Terlambat (T)</th>
                 <th className="py-3 px-3 text-center font-bold text-amber-700 dark:text-amber-400">Sakit (S)</th>
                 <th className="py-3 px-3 text-center font-bold text-sky-700 dark:text-sky-400">Izin (I)</th>
                 <th className="py-3 px-3 text-center font-bold text-purple-700 dark:text-purple-400">Dinas Luar (DL)</th>
@@ -289,6 +294,9 @@ export const SummaryStatsView: React.FC<SummaryStatsViewProps> = ({
                   </td>
                   <td className="py-2.5 px-3 text-center font-semibold text-emerald-700 dark:text-emerald-400">
                     {sec.hadir}
+                  </td>
+                  <td className="py-2.5 px-3 text-center font-semibold text-orange-700 dark:text-orange-400">
+                    {sec.terlambat}
                   </td>
                   <td className="py-2.5 px-3 text-center font-semibold text-amber-700 dark:text-amber-400">
                     {sec.sakit}
@@ -365,6 +373,9 @@ export const SummaryStatsView: React.FC<SummaryStatsViewProps> = ({
                 </td>
                 <td className="py-3 px-3 text-center text-emerald-700 dark:text-emerald-400">
                   {totalH}
+                </td>
+                <td className="py-3 px-3 text-center text-orange-700 dark:text-orange-400">
+                  {totalT}
                 </td>
                 <td className="py-3 px-3 text-center text-amber-700 dark:text-amber-400">
                   {totalS}

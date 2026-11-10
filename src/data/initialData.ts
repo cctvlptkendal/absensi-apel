@@ -82,75 +82,7 @@ export const INITIAL_EXPORT_SETTINGS: ExportSettings = {
   },
 };
 
-// Generate realistic initial attendance for November 2024 (e.g. days 1 to 10)
+// Keterangan input apel pegawai diisi secara manual; tanggal yang belum/tidak diinput dibiarkan kosong
 export function generateInitialAttendance(): Record<string, AttendanceRecord> {
-  const records: Record<string, AttendanceRecord> = {};
-  const year = 2024;
-  const month = 10; // November (0-indexed = 10)
-
-  // Dates 1 to 10
-  for (let day = 1; day <= 10; day++) {
-    const dayStr = String(day).padStart(2, '0');
-    const dateStr = `${year}-11-${dayStr}`;
-    const dateObj = new Date(year, month, day);
-    const dayOfWeek = dateObj.getDay(); // 0 is Sunday, 6 is Saturday
-
-    INITIAL_EMPLOYEES.forEach((emp, index) => {
-      const key = `${emp.id}_${dateStr}`;
-      
-      // If Sunday, marked as 'LB' (Libur)
-      if (dayOfWeek === 0) {
-        records[key] = {
-          employeeId: emp.id,
-          date: dateStr,
-          status: 'LB',
-          note: 'Hari Libur',
-        };
-        return;
-      }
-
-      // Default is '✓' (Hadir), with realistic variation
-      let status: AttendanceRecord['status'] = '✓';
-      let note: string | undefined = undefined;
-
-      // Realistic occasional permits/leaves/dinas/piket
-      if (day === 4 && index === 2) {
-        status = 'DL';
-        note = 'Koordinasi Kanwil';
-      } else if (day === 5 && index === 7) {
-        status = 'S';
-        note = 'Sakit (Flu/Demam)';
-      } else if (day === 6 && index === 14) {
-        status = 'I';
-        note = 'Keperluan Keluarga';
-      } else if (day === 8 && index === 25) {
-        status = 'C';
-        note = 'Cuti Tahunan';
-      } else if (day === 9 && index === 40) {
-        status = 'DL';
-        note = 'Diklat Teknis';
-      } else if (emp.sectionId === 'sec-2' && day === 3 && index === 12) {
-        status = 'LP';
-        note = 'Lepas Piket Malam';
-      } else if (emp.sectionId === 'sec-2' && day === 4 && index === 13) {
-        status = 'PS';
-        note = 'Piket Siang';
-      } else if (emp.sectionId === 'sec-5' && day === 7 && index === 45) {
-        status = 'LP';
-        note = 'Lepas Piket Pengamanan';
-      } else if (emp.sectionId === 'sec-5' && day === 8 && index === 46) {
-        status = 'PS';
-        note = 'Piket Siang';
-      }
-
-      records[key] = {
-        employeeId: emp.id,
-        date: dateStr,
-        status,
-        note,
-      };
-    });
-  }
-
-  return records;
+  return {};
 }

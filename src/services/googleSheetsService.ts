@@ -7,6 +7,7 @@ import {
   Section,
   Employee,
   AttendanceRecord,
+  AttendanceStatus,
   PeriodConfig,
   ExportSettings,
   ACTIVE_STATUS_CODES,
@@ -211,12 +212,12 @@ function buildMatrixRows(
   dateColumns.forEach((d) => {
     headerRow.push(`${d.dayNum} (${d.dayName})`);
   });
-  headerRow.push('✓ (Hadir)', 'S', 'I', 'DL', 'C', 'TK', 'LP', 'PS', '% Kehadiran', 'Catatan / Alasan');
+  headerRow.push('✓ (Hadir)', 'T (Terlambat)', 'S', 'I', 'DL', 'C', 'TK', 'LP', 'PS', '% Kehadiran', 'Catatan / Alasan');
   rows.push(headerRow);
 
   const sortedSections = [...sections].sort((a, b) => a.order - b.order);
 
-  let grandH = 0, grandS = 0, grandI = 0, grandDL = 0, grandC = 0, grandTK = 0, grandLP = 0, grandPS = 0;
+  let grandH = 0, grandT = 0, grandS = 0, grandI = 0, grandDL = 0, grandC = 0, grandTK = 0, grandLP = 0, grandPS = 0;
   let grandSched = 0;
 
   sortedSections.forEach((sec) => {
@@ -230,10 +231,10 @@ function buildMatrixRows(
     const secTitleRow = [`BAGIAN / SEKSI: ${sec.name.toUpperCase()} (${secEmployees.length} PERSONEL)`];
     rows.push(secTitleRow);
 
-    let secH = 0, secS = 0, secI = 0, secDL = 0, secC = 0, secTK = 0, secLP = 0, secPS = 0;
+    let secH = 0, secT = 0, secS = 0, secI = 0, secDL = 0, secC = 0, secTK = 0, secLP = 0, secPS = 0;
 
     secEmployees.forEach((emp, idx) => {
-      let h = 0, s = 0, i = 0, dl = 0, c = 0, tk = 0, lp = 0, ps = 0;
+      let h = 0, t = 0, s = 0, i = 0, dl = 0, c = 0, tk = 0, lp = 0, ps = 0;
       const notes: string[] = [];
 
       const empRow: any[] = [idx + 1, emp.name];
@@ -242,6 +243,7 @@ function buildMatrixRows(
         const rec = getEffectiveAttendanceRecord(attendance, emp.id, d.dateStr, d.isWeekend);
         const st = rec.status;
         if (st === '✓' || st === '✔' || st === 'H') h++;
+        else if (st === 'T') t++;
         else if (st === 'S') s++;
         else if (st === 'I') i++;
         else if (st === 'DL') dl++;
@@ -258,14 +260,15 @@ function buildMatrixRows(
         empRow.push(st);
       });
 
-      const sched = h + s + i + dl + c + tk + lp + ps;
-      const duty = h + ps + dl;
+      const sched = h + t + s + i + dl + c + tk + lp + ps;
+      const duty = h + t + ps + dl;
       const rate = sched > 0 ? Math.round((duty / sched) * 100) : 100;
 
-      empRow.push(h, s, i, dl, c, tk, lp, ps, `${rate}%`, notes.join('; ') || '-');
+      empRow.push(h, t, s, i, dl, c, tk, lp, ps, `${rate}%`, notes.join('; ') || '-');
       rows.push(empRow);
 
       secH += h;
+      secT += t;
       secS += s;
       secI += i;
       secDL += dl;
@@ -275,8 +278,8 @@ function buildMatrixRows(
       secPS += ps;
     });
 
-    const secSched = secH + secS + secI + secDL + secC + secTK + secLP + secPS;
-    const secDuty = secH + secPS + secDL;
+    const secSched = secH + secT + secS + secI + secDL + secC + secTK + secLP + secPS;
+    const secDuty = secH + secT + secPS + secDL;
     const secRate = secSched > 0 ? Math.round((secDuty / secSched) * 100) : 100;
 
     const subtotalRow: any[] = [`Subtotal ${sec.name}`];
@@ -284,10 +287,11 @@ function buildMatrixRows(
     for (let c = 0; c < dateColumns.length + 1; c++) {
       subtotalRow.push('');
     }
-    subtotalRow.push(secH, secS, secI, secDL, secC, secTK, secLP, secPS, `${secRate}%`, '');
+    subtotalRow.push(secH, secT, secS, secI, secDL, secC, secTK, secLP, secPS, `${secRate}%`, '');
     rows.push(subtotalRow);
 
     grandH += secH;
+    grandT += secT;
     grandS += secS;
     grandI += secI;
     grandDL += secDL;
@@ -299,14 +303,14 @@ function buildMatrixRows(
   });
 
   // Grand Total Row
-  const grandDuty = grandH + grandPS + grandDL;
+  const grandDuty = grandH + grandT + grandPS + grandDL;
   const grandRate = grandSched > 0 ? Math.round((grandDuty / grandSched) * 100) : 100;
 
   const totalRow: any[] = ['TOTAL KESELURUHAN SATKER'];
   for (let c = 0; c < dateColumns.length + 1; c++) {
     totalRow.push('');
   }
-  totalRow.push(grandH, grandS, grandI, grandDL, grandC, grandTK, grandLP, grandPS, `${grandRate}%`, 'Lengkap');
+  totalRow.push(grandH, grandT, grandS, grandI, grandDL, grandC, grandTK, grandLP, grandPS, `${grandRate}%`, 'Lengkap');
   rows.push(totalRow);
 
   rows.push([]); // blank
@@ -384,6 +388,7 @@ function buildStatsRows(
     'Nama Seksi / Unit Kerja',
     'Jumlah Personel',
     'Hadir (✓)',
+    'Terlambat (T)',
     'Sakit (S)',
     'Izin (I)',
     'Dinas Luar (DL)',
@@ -397,17 +402,18 @@ function buildStatsRows(
 
   const sortedSections = [...sections].sort((a, b) => a.order - b.order);
 
-  let totH = 0, totS = 0, totI = 0, totDL = 0, totC = 0, totTK = 0, totLP = 0, totPS = 0;
+  let totH = 0, totT = 0, totS = 0, totI = 0, totDL = 0, totC = 0, totTK = 0, totLP = 0, totPS = 0;
 
   sortedSections.forEach((sec, idx) => {
     const secEmployees = employees.filter((e) => e.sectionId === sec.id);
-    let sH = 0, sS = 0, sI = 0, sDL = 0, sC = 0, sTK = 0, sLP = 0, sPS = 0;
+    let sH = 0, sT = 0, sS = 0, sI = 0, sDL = 0, sC = 0, sTK = 0, sLP = 0, sPS = 0;
 
     secEmployees.forEach((emp) => {
       dateColumns.forEach((d) => {
         const rec = getEffectiveAttendanceRecord(attendance, emp.id, d.dateStr, d.isWeekend);
         const st = rec.status;
         if (st === '✓' || st === '✔' || st === 'H') sH++;
+        else if (st === 'T') sT++;
         else if (st === 'S') sS++;
         else if (st === 'I') sI++;
         else if (st === 'DL') sDL++;
@@ -418,8 +424,8 @@ function buildStatsRows(
       });
     });
 
-    const activeSched = sH + sS + sI + sDL + sC + sTK + sLP + sPS;
-    const duty = sH + sPS + sDL;
+    const activeSched = sH + sT + sS + sI + sDL + sC + sTK + sLP + sPS;
+    const duty = sH + sT + sPS + sDL;
     const rate = activeSched > 0 ? Math.round((duty / activeSched) * 100) : 100;
 
     const absenceInfo = getPeriodSectionAbsenceDetails(sec.id, employees, attendance, dateColumns);
@@ -432,6 +438,7 @@ function buildStatsRows(
       sec.name,
       secEmployees.length,
       sH,
+      sT,
       sS,
       sI,
       sDL,
@@ -444,6 +451,7 @@ function buildStatsRows(
     ]);
 
     totH += sH;
+    totT += sT;
     totS += sS;
     totI += sI;
     totDL += sDL;
@@ -453,16 +461,17 @@ function buildStatsRows(
     totPS += sPS;
   });
 
-  const allSched = totH + totS + totI + totDL + totC + totTK + totLP + totPS;
-  const allDuty = totH + totPS + totDL;
+  const allSched = totH + totT + totS + totI + totDL + totC + totTK + totLP + totPS;
+  const allDuty = totH + totT + totPS + totDL;
   const allRate = allSched > 0 ? Math.round((allDuty / allSched) * 100) : 100;
-  const totalAbsentSlots = totS + totI + totDL + totC + totTK;
+  const totalAbsentSlots = totT + totS + totI + totDL + totC + totTK;
 
   rows.push([
     'TOTAL',
     'SELURUH SATUAN KERJA',
     employees.length,
     totH,
+    totT,
     totS,
     totI,
     totDL,
@@ -640,5 +649,110 @@ export async function verifySpreadsheetAccess(
     valid: true,
     title: data.properties?.title || 'Google Spreadsheet',
     url: data.spreadsheetUrl || `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
+  };
+}
+
+/**
+ * Fetches attendance matrix data from Google Sheets periodically and extracts updated records
+ */
+export async function fetchAttendanceFromSpreadsheet({
+  accessToken,
+  spreadsheetId,
+  employees,
+  period,
+}: {
+  accessToken: string;
+  spreadsheetId: string;
+  employees: Employee[];
+  period: PeriodConfig;
+}): Promise<{
+  records: Record<string, AttendanceRecord>;
+  updatedTime: string;
+}> {
+  const dateColumns = getDateColumns(period);
+  // Fetch values from Sheet 1 "Rekap Matriks 10 Hari"
+  const range = encodeURIComponent("'Rekap Matriks 10 Hari'!A5:Z200");
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueRenderOption=FORMATTED_VALUE`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error('Gagal mengambil data dari Google Spreadsheet.');
+  }
+
+  const data = await res.json();
+  const rows: any[][] = data.values || [];
+
+  const records: Record<string, AttendanceRecord> = {};
+
+  // Build employee name lookup map (normalized lowercase trim)
+  const empNameMap = new Map<string, Employee>();
+  employees.forEach((emp) => {
+    empNameMap.set(emp.name.trim().toLowerCase(), emp);
+  });
+
+  rows.forEach((row) => {
+    if (!row || row.length < 2) return;
+    const nameCol = String(row[1] || '').trim();
+    if (!nameCol) return;
+
+    const matchedEmp = empNameMap.get(nameCol.toLowerCase());
+    if (!matchedEmp) return;
+
+    // Date columns start at column index 2
+    dateColumns.forEach((d, dIdx) => {
+      const colIndex = 2 + dIdx;
+      if (colIndex < row.length) {
+        const rawStatus = String(row[colIndex] || '').trim().toUpperCase();
+        let normalizedStatus: AttendanceStatus | undefined = undefined;
+
+        if (rawStatus === '✓' || rawStatus === '✔' || rawStatus === 'H') {
+          normalizedStatus = '✓';
+        } else if (rawStatus === 'T') {
+          normalizedStatus = 'T';
+        } else if (rawStatus === 'S') {
+          normalizedStatus = 'S';
+        } else if (rawStatus === 'I') {
+          normalizedStatus = 'I';
+        } else if (rawStatus === 'DL') {
+          normalizedStatus = 'DL';
+        } else if (rawStatus === 'C') {
+          normalizedStatus = 'C';
+        } else if (rawStatus === 'TK') {
+          normalizedStatus = 'TK';
+        } else if (rawStatus === 'LP') {
+          normalizedStatus = 'LP';
+        } else if (rawStatus === 'PS') {
+          normalizedStatus = 'PS';
+        } else if (rawStatus === 'LB' || rawStatus === '-') {
+          normalizedStatus = 'LB';
+        }
+
+        if (normalizedStatus) {
+          const key = `${matchedEmp.id}_${d.dateStr}`;
+          records[key] = {
+            employeeId: matchedEmp.id,
+            date: d.dateStr,
+            status: normalizedStatus,
+          };
+        }
+      }
+    });
+  });
+
+  const updatedTime = new Date().toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+
+  return {
+    records,
+    updatedTime,
   };
 }

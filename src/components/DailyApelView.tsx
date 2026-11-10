@@ -82,6 +82,7 @@ export const DailyApelView: React.FC<DailyApelViewProps> = ({
 
   // Day counts
   let dayH = 0,
+    dayT = 0,
     dayS = 0,
     dayI = 0,
     dayDL = 0,
@@ -106,6 +107,7 @@ export const DailyApelView: React.FC<DailyApelViewProps> = ({
     const rec = getRecord(e.id);
     const st = rec.status;
     if (st === '✓') dayH++;
+    else if (st === 'T') dayT++;
     else if (st === 'S') dayS++;
     else if (st === 'I') dayI++;
     else if (st === 'DL') dayDL++;
@@ -127,8 +129,8 @@ export const DailyApelView: React.FC<DailyApelViewProps> = ({
     }
   });
 
-  const scheduled = dayH + dayS + dayI + dayDL + dayC + dayTK + dayLP + dayPS;
-  const dutyPresent = dayH + dayPS + dayDL;
+  const scheduled = dayH + dayT + dayS + dayI + dayDL + dayC + dayTK + dayLP + dayPS;
+  const dutyPresent = dayH + dayT + dayPS + dayDL;
   const dailyRate = scheduled > 0 ? Math.round((dutyPresent / scheduled) * 100) : 100;
 
   // Handler to download daily PDF
@@ -160,6 +162,7 @@ export const DailyApelView: React.FC<DailyApelViewProps> = ({
   const sectionBreakdown = sortedSections.map((sec, idx) => {
     const secEmployees = employees.filter((e) => e.sectionId === sec.id);
     let sH = 0,
+      sT = 0,
       sS = 0,
       sI = 0,
       sDL = 0,
@@ -172,6 +175,7 @@ export const DailyApelView: React.FC<DailyApelViewProps> = ({
     secEmployees.forEach((emp) => {
       const st = getRecord(emp.id).status;
       if (st === '✓') sH++;
+      else if (st === 'T') sT++;
       else if (st === 'S') sS++;
       else if (st === 'I') sI++;
       else if (st === 'DL') sDL++;
@@ -182,9 +186,8 @@ export const DailyApelView: React.FC<DailyApelViewProps> = ({
       else if (st === 'LB') sLB++;
     });
 
-
-    const secSched = sH + sS + sI + sDL + sC + sTK + sLP + sPS;
-    const secDuty = sH + sPS + sDL;
+    const secSched = sH + sT + sS + sI + sDL + sC + sTK + sLP + sPS;
+    const secDuty = sH + sT + sPS + sDL;
     const secRate = secSched > 0 ? Math.round((secDuty / secSched) * 100) : 100;
 
     const absenceInfo = getDailySectionAbsenceDetails(
@@ -201,6 +204,7 @@ export const DailyApelView: React.FC<DailyApelViewProps> = ({
       name: sec.name,
       total: secEmployees.length,
       h: sH,
+      t: sT,
       s: sS,
       i: sI,
       dl: sDL,
@@ -462,6 +466,7 @@ export const DailyApelView: React.FC<DailyApelViewProps> = ({
                     <th className="py-2.5 px-4 font-bold min-w-44">Nama Seksi / Unit</th>
                     <th className="py-2.5 px-3 text-center font-bold">Jumlah</th>
                     <th className="py-2.5 px-2.5 text-center font-bold text-emerald-700 dark:text-emerald-400">Hadir (✓)</th>
+                    <th className="py-2.5 px-2.5 text-center font-bold text-orange-700 dark:text-orange-400">T</th>
                     <th className="py-2.5 px-2.5 text-center font-bold text-teal-700 dark:text-teal-400">LP</th>
                     <th className="py-2.5 px-2.5 text-center font-bold text-blue-700 dark:text-blue-400">PS</th>
                     <th className="py-2.5 px-2.5 text-center font-bold text-purple-700 dark:text-purple-400">DL</th>
@@ -490,6 +495,9 @@ export const DailyApelView: React.FC<DailyApelViewProps> = ({
                       </td>
                       <td className="py-2.5 px-2.5 text-center font-bold text-emerald-700 dark:text-emerald-400">
                         {sec.h}
+                      </td>
+                      <td className="py-2.5 px-2.5 text-center font-semibold text-orange-700 dark:text-orange-400">
+                        {sec.t}
                       </td>
                       <td className="py-2.5 px-2.5 text-center font-semibold text-teal-700 dark:text-teal-400">
                         {sec.lp}
@@ -575,6 +583,7 @@ export const DailyApelView: React.FC<DailyApelViewProps> = ({
                       {employees.length}
                     </td>
                     <td className="py-3 px-2.5 text-center text-emerald-700 dark:text-emerald-400">{dayH}</td>
+                    <td className="py-3 px-2.5 text-center text-orange-700 dark:text-orange-400">{dayT}</td>
                     <td className="py-3 px-2.5 text-center text-teal-700 dark:text-teal-400">{dayLP}</td>
                     <td className="py-3 px-2.5 text-center text-blue-700 dark:text-blue-400">{dayPS}</td>
                     <td className="py-3 px-2.5 text-center text-purple-700 dark:text-purple-400">{dayDL}</td>

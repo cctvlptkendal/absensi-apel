@@ -138,7 +138,7 @@ export function buildAttendanceWorkbook({
   dateColumns.forEach(d => {
     headerRow.push(`${d.dayNum}\n(${d.dayName})`);
   });
-  headerRow.push('✓', 'S', 'I', 'DL', 'C', 'TK', 'LP', 'PS', '% Hadir', 'KETERANGAN');
+  headerRow.push('✓', 'T', 'S', 'I', 'DL', 'C', 'TK', 'LP', 'PS', '% Hadir', 'KETERANGAN');
   aoa.push(headerRow);
 
   const merges: XLSX.Range[] = [
@@ -148,6 +148,7 @@ export function buildAttendanceWorkbook({
   ];
 
   let grandTotalH = 0;
+  let grandTotalT = 0;
   let grandTotalS = 0;
   let grandTotalI = 0;
   let grandTotalDL = 0;
@@ -180,6 +181,7 @@ export function buildAttendanceWorkbook({
     });
 
     let secTotalH = 0;
+    let secTotalT = 0;
     let secTotalS = 0;
     let secTotalI = 0;
     let secTotalDL = 0;
@@ -191,6 +193,7 @@ export function buildAttendanceWorkbook({
 
     secEmployees.forEach((emp, empIdx) => {
       let hCount = 0;
+      let tCount = 0;
       let sCount = 0;
       let iCount = 0;
       let dlCount = 0;
@@ -209,6 +212,7 @@ export function buildAttendanceWorkbook({
         empRow.push(status);
 
         if (status === '✓') hCount++;
+        else if (status === 'T') tCount++;
         else if (status === 'S') sCount++;
         else if (status === 'I') iCount++;
         else if (status === 'DL') dlCount++;
@@ -222,16 +226,16 @@ export function buildAttendanceWorkbook({
         }
       });
 
-
       // Scheduled duty days (excluding Libur 'LB')
-      const scheduledDays = hCount + sCount + iCount + dlCount + cCount + tkCount + lpCount + psCount;
-      const totalDutyPresent = hCount + psCount + dlCount;
+      const scheduledDays = hCount + tCount + sCount + iCount + dlCount + cCount + tkCount + lpCount + psCount;
+      const totalDutyPresent = hCount + tCount + psCount + dlCount;
       const rate = scheduledDays > 0 ? Math.round((totalDutyPresent / scheduledDays) * 100) : 100;
 
-      empRow.push(hCount, sCount, iCount, dlCount, cCount, tkCount, lpCount, psCount, `${rate}%`, notes.join('; '));
+      empRow.push(hCount, tCount, sCount, iCount, dlCount, cCount, tkCount, lpCount, psCount, `${rate}%`, notes.join('; '));
       aoa.push(empRow);
 
       secTotalH += hCount;
+      secTotalT += tCount;
       secTotalS += sCount;
       secTotalI += iCount;
       secTotalDL += dlCount;
@@ -243,13 +247,14 @@ export function buildAttendanceWorkbook({
     });
 
     // Subtotal section row
-    const secDutyPresent = secTotalH + secTotalPS + secTotalDL;
+    const secDutyPresent = secTotalH + secTotalT + secTotalPS + secTotalDL;
     const secRate = secPossibleDays > 0 ? Math.round((secDutyPresent / secPossibleDays) * 100) : 100;
     const subtotalRow: (string | number | null)[] = [
       '',
       `SUBTOTAL ${section.name}`,
       ...Array(dateColumns.length).fill(''),
       secTotalH,
+      secTotalT,
       secTotalS,
       secTotalI,
       secTotalDL,
@@ -263,6 +268,7 @@ export function buildAttendanceWorkbook({
     aoa.push(subtotalRow);
 
     grandTotalH += secTotalH;
+    grandTotalT += secTotalT;
     grandTotalS += secTotalS;
     grandTotalI += secTotalI;
     grandTotalDL += secTotalDL;
@@ -275,13 +281,14 @@ export function buildAttendanceWorkbook({
 
   // Grand Total Row
   aoa.push([]);
-  const grandDutyPresent = grandTotalH + grandTotalPS + grandTotalDL;
+  const grandDutyPresent = grandTotalH + grandTotalT + grandTotalPS + grandTotalDL;
   const grandRate = grandTotalWorkingDays > 0 ? Math.round((grandDutyPresent / grandTotalWorkingDays) * 100) : 100;
   const totalRow: (string | number | null)[] = [
     '',
     'TOTAL KESELURUHAN PEGAWAI',
     ...Array(dateColumns.length).fill(''),
     grandTotalH,
+    grandTotalT,
     grandTotalS,
     grandTotalI,
     grandTotalDL,
@@ -335,6 +342,7 @@ export function buildAttendanceWorkbook({
     { wch: 32 }, // Nama Pegawai
     ...dateColumns.map(() => ({ wch: 7 })), // Date columns
     { wch: 6 },  // ✓
+    { wch: 6 },  // T
     { wch: 6 },  // S
     { wch: 6 },  // I
     { wch: 6 },  // DL
@@ -352,18 +360,19 @@ export function buildAttendanceWorkbook({
     [settings.institution.toUpperCase()],
     [`PERIODE TANGGAL ${startDayNum} S.D. ${endDayNum} ${currentMonthName} ${period.year}`],
     [],
-    ['No', 'Nama Seksi / Unit', 'Jumlah Personel', 'Hadir (✓)', 'Sakit (S)', 'Izin (I)', 'Dinas Luar (DL)', 'Cuti (C)', 'Tanpa Keterangan (TK)', 'Lepas Piket (LP)', 'Piket Siang (PS)', '% Kehadiran', 'Pegawai Tidak Hadir (Nama & Keterangan)'],
+    ['No', 'Nama Seksi / Unit', 'Jumlah Personel', 'Hadir (✓)', 'Terlambat (T)', 'Sakit (S)', 'Izin (I)', 'Dinas Luar (DL)', 'Cuti (C)', 'Tanpa Keterangan (TK)', 'Lepas Piket (LP)', 'Piket Siang (PS)', '% Kehadiran', 'Pegawai Tidak Hadir (Nama & Keterangan)'],
   ];
 
   sortedSections.forEach((sec, idx) => {
     const secEmployees = employees.filter(e => e.sectionId === sec.id);
-    let sH = 0, sS = 0, sI = 0, sDL = 0, sC = 0, sTK = 0, sLP = 0, sPS = 0;
+    let sH = 0, sT = 0, sS = 0, sI = 0, sDL = 0, sC = 0, sTK = 0, sLP = 0, sPS = 0;
     
     secEmployees.forEach(emp => {
       dateColumns.forEach(d => {
         const key = `${emp.id}_${d.dateStr}`;
         const st = attendance[key]?.status || (d.isWeekend ? 'LB' : '✓');
         if (st === '✓' || st === 'H') sH++;
+        else if (st === 'T') sT++;
         else if (st === 'S') sS++;
         else if (st === 'I') sI++;
         else if (st === 'DL') sDL++;
@@ -374,8 +383,8 @@ export function buildAttendanceWorkbook({
       });
     });
 
-    const activeDays = sH + sS + sI + sDL + sC + sTK + sLP + sPS;
-    const dutyPresent = sH + sPS + sDL;
+    const activeDays = sH + sT + sS + sI + sDL + sC + sTK + sLP + sPS;
+    const dutyPresent = sH + sT + sPS + sDL;
     const rate = activeDays > 0 ? Math.round((dutyPresent / activeDays) * 100) : 100;
 
     const absenceInfo = getPeriodSectionAbsenceDetails(sec.id, employees, attendance, dateColumns);
@@ -388,6 +397,7 @@ export function buildAttendanceWorkbook({
       sec.name,
       secEmployees.length,
       sH,
+      sT,
       sS,
       sI,
       sDL,
@@ -400,12 +410,13 @@ export function buildAttendanceWorkbook({
     ]);
   });
 
-  const grandTotalAbsence = grandTotalS + grandTotalI + grandTotalDL + grandTotalC + grandTotalTK;
+  const grandTotalAbsence = grandTotalT + grandTotalS + grandTotalI + grandTotalDL + grandTotalC + grandTotalTK;
   summaryAoa.push([
     '',
     'TOTAL PERSONEL',
     employees.length,
     grandTotalH,
+    grandTotalT,
     grandTotalS,
     grandTotalI,
     grandTotalDL,

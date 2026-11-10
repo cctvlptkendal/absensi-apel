@@ -26,6 +26,7 @@ import {
   loadStoredSyncConfig,
   saveStoredSyncConfig,
   syncAttendanceToSpreadsheet,
+  fetchAttendanceFromSpreadsheet,
 } from './services/googleSheetsService';
 import { getAccessToken } from './services/googleDriveService';
 import {
@@ -308,6 +309,98 @@ export default function App() {
       }
     };
   }, [attendance, employees, sections, period, exportSettings, syncConfig.enabled, syncConfig.spreadsheetId, syncConfig.autoSyncOnChange]);
+
+  // State untuk pemantauan realtime & fetch berkala 20 detik
+  const [lastPeriodicFetchTime, setLastPeriodicFetchTime] = useState<string>('');
+  const [isPeriodicFetching, setIsPeriodicFetching] = useState<boolean>(false);
+  const [fetchCountdown, setFetchCountdown] = useState<number>(20);
+
+  // useEffect dan setInterval untuk melakukan fetch data secara berkala setiap 20 detik
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchData = async () => {
+      if (syncConfig.enabled && syncConfig.spreadsheetId) {
+        try {
+          const token = await getAccessToken();
+          if (!token || isCancelled) return;
+
+          setIsPeriodicFetching(true);
+          const result = await fetchAttendanceFromSpreadsheet({
+            accessToken: token,
+            spreadsheetId: syncConfig.spreadsheetId,
+            employees,
+            period,
+          });
+
+          if (isCancelled) return;
+
+          if (result && result.records && Object.keys(result.records).length > 0) {
+            setAttendance((prev) => {
+              let hasChange = false;
+              const merged = { ...prev };
+              for (const [key, rec] of Object.entries(result.records)) {
+                if (!prev[key] || prev[key].status !== rec.status) {
+                  merged[key] = { ...prev[key], ...rec };
+                  hasChange = true;
+                }
+              }
+              if (hasChange) {
+                try {
+                  localStorage.setItem(STORAGE_KEY_ATTENDANCE, JSON.stringify(merged));
+                } catch {
+                  // Abaikan kesalahan quota localStorage
+                }
+                return merged;
+              }
+              return prev;
+            });
+          }
+
+          const nowStr = new Date().toLocaleTimeString('id-ID', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          });
+          setLastPeriodicFetchTime(nowStr);
+        } catch (err) {
+          console.warn('Periodic fetch 20s warning:', err);
+        } finally {
+          if (!isCancelled) {
+            setIsPeriodicFetching(false);
+          }
+        }
+      } else {
+        const nowStr = new Date().toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+        setLastPeriodicFetchTime(nowStr);
+      }
+    };
+
+    // Jalankan fetch pertama saat inisialisasi
+    fetchData();
+
+    // setInterval untuk fetch data secara berkala setiap 20 detik (20000 ms)
+    const intervalId = setInterval(() => {
+      fetchData();
+      setFetchCountdown(20);
+    }, 20000);
+
+    // Countdown visual setiap detik
+    const countdownId = setInterval(() => {
+      setFetchCountdown((prev) => (prev <= 1 ? 20 : prev - 1));
+    }, 1000);
+
+    // Bersihkan timer saat unmount atau dependensi berubah
+    return () => {
+      isCancelled = true;
+      clearInterval(intervalId);
+      clearInterval(countdownId);
+    };
+  }, [syncConfig.enabled, syncConfig.spreadsheetId, employees, period]);
 
   // Global Toast Notification
   const [toastNotification, setToastNotification] = useState<{
@@ -663,8 +756,12 @@ export default function App() {
           
           {/* Logo & Satker Info */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-emerald-500 flex items-center justify-center shadow-md">
-              <Shield className="w-5 h-5 text-white" />
+            <div className="w-11 h-11 rounded-xl bg-slate-800/80 p-0.5 border border-slate-700/80 flex items-center justify-center shadow-md overflow-hidden shrink-0">
+              <img
+                src="/assets/aistudio/FA_Logo_Kementrian_Imigrasi_dan_Pemasyarakatan__3__4454c952.png"
+                alt="Logo Kementerian Imigrasi dan Pemasyarakatan"
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -713,7 +810,7 @@ export default function App() {
               <span className="hidden sm:inline">Google Drive</span>
             </button>
 
-            {/* Google Sheets Realtime Live Sync Pill Button */}
+            {/* Google Sheets Realtime Live Sync Pill Button with 20s Periodic Fetch */}
             <button
               onClick={() => setIsSheetsSyncModalOpen(true)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 border ${
@@ -721,10 +818,12 @@ export default function App() {
                   ? 'bg-emerald-600/20 border-emerald-500/50 text-emerald-300 hover:bg-emerald-600/30'
                   : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white'
               }`}
-              title="Sinkronisasi Absensi Realtime ke Google Sheets"
+              title={`Sinkronisasi Realtime Google Sheets (Auto Fetch tiap 20 detik)${
+                lastPeriodicFetchTime ? ` • Terakhir diperbarui: ${lastPeriodicFetchTime}` : ''
+              }`}
             >
               {syncConfig.enabled && syncConfig.spreadsheetId ? (
-                syncConfig.syncStatus === 'syncing' ? (
+                isPeriodicFetching || syncConfig.syncStatus === 'syncing' ? (
                   <RefreshCw className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
                 ) : (
                   <span className="relative flex h-2 w-2">
@@ -737,14 +836,27 @@ export default function App() {
               )}
               <span className="hidden sm:inline">
                 {syncConfig.enabled && syncConfig.spreadsheetId
-                  ? syncConfig.syncStatus === 'syncing'
+                  ? isPeriodicFetching
+                    ? 'Fetching...'
+                    : syncConfig.syncStatus === 'syncing'
                     ? 'Menyinkronkan...'
                     : 'Sheets Live'
                   : 'Sheets Sync'}
               </span>
-              {syncConfig.enabled && syncConfig.spreadsheetId && (
-                <span className="text-[10px] bg-emerald-500/30 text-emerald-200 px-1.5 py-0.2 rounded-full font-mono">
-                  LIVE
+              {syncConfig.enabled && syncConfig.spreadsheetId ? (
+                <span
+                  className="text-[10px] bg-emerald-500/30 text-emerald-200 px-1.5 py-0.5 rounded-full font-mono flex items-center gap-1"
+                  title={`Fetch berkala berikutnya dalam ${fetchCountdown} detik`}
+                >
+                  <span className="hidden md:inline">20s</span>
+                  <span>{fetchCountdown}s</span>
+                </span>
+              ) : (
+                <span
+                  className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded-full font-mono"
+                  title="Auto fetch tiap 20 detik saat sinkronisasi aktif"
+                >
+                  20s
                 </span>
               )}
             </button>

@@ -625,7 +625,7 @@ export const GoogleSheetsSyncModal: React.FC<GoogleSheetsSyncModalProps> = ({
             </h5>
             <ul className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400 list-disc list-inside">
               <li>
-                <strong>Otomatis & Langsung:</strong> Setiap kali status apel diubah (Hadir, Sakit, Izin, DL, LP, PS), perubahan akan otomatis disinkronkan ke Google Spreadsheet dalam hitungan detik.
+                <strong>Otomatis & Berkala:</strong> Setiap status apel diubah akan otomatis disinkronkan, serta aplikasi melakukan fetch data berkala setiap 20 detik secara realtime.
               </li>
               <li>
                 <strong>Dua Lembar Kerja (Sheets):</strong> Lembar pertama berisi tabel matriks 10 hari lengkap, lembar kedua berisi ringkasan statistik per seksi dan status apel.
