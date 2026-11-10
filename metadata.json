@@ -1,0 +1,7 @@
+{
+  "name": "Sistem Rekap Absensi Pegawai 10 Hari",
+  "description": "Aplikasi rekap absensi apel dan kehadiran pegawai per 10 hari dengan ekspor Excel, manajemen personel per seksi/bagian, dan statistik kehadiran.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
